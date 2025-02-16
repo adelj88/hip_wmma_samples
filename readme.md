@@ -78,9 +78,12 @@ You can add specific sizes to the`.verify_sizes` list to validate the output, an
 - This project emphasizes understanding the mechanics of HIP programming and RDNA3 WMMA intrinsics, particularly how to handle data loading and storage effectively.
 - It is intended as a learning tool and not as an optimized implementation for production use.
 
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 ## Acknowledgments
 
 This project was inspired by:
 - The [GPUOpen RDNA3 WMMA Tutorial](https://gpuopen.com/learn/wmma_on_rdna3/).
 - The excellent work on [rocWMMA](https://github.com/ROCm/rocWMMA), which should be used for real-world applications involving WMMA.
-
