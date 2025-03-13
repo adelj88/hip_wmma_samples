@@ -28,58 +28,62 @@ Performance measured on AMD Radeon RX 7900 GRE on Windows and WSL2 (HIP SDK 6.2.
 ### Performance for 1024x1024 Matrix Multiplication
 | Implementation | Windows Time (ms) | Windows TFLOPs/s | WSL2 Time (ms) | WSL2 TFLOPs/s |
 |----------------|-------------------|-------------------|----------------|---------------|
-| Shared Memory | 0.572 | 3.80 | 0.576 | 3.78 |
-| WMMA Naive | 0.410 | 5.31 | 0.425 | 5.12 |
-| WMMA + Shared Memory | 0.215 | 10.10 | 0.222 | 9.81 |
-| WMMA + Shared Memory + Warp Tiling | 0.406 | 5.36 | 0.341 | 6.37 |
-| WMMA + Shared Memory + Warp Tiling + Double Buffering | 0.403 | 5.39 | 0.335 | 6.50 |
-| WMMA + Shared Memory + Warp Tiling + Global Vectorized Loads | 0.118 | 18.42 | 0.122 | 17.87 |
-| WMMA + Shared Memory + Warp Tiling + Double Buffering + Global Vectorized Loads | 0.116 | 18.78 | 0.118 | 18.45 |
-| WMMA Prefetch | 0.113 | 19.25 | 0.124 | 17.52 |
-| WMMA Optimized V1 | 0.109 | 19.98 | 0.114 | 19.04 |
-| rocBLAS | 0.059 | 36.87 | 0.052 | 41.74 |
+| Shared Memory | 0.668 | 3.21 | 0.678 | 3.17 |
+| WMMA Naive | 0.541 | 3.97 | 0.538 | 3.99 |
+| WMMA + Shared Memory | 0.390 | 5.51 | 0.332 | 6.47 |
+| WMMA + Shared Memory + Warp Tiling | 0.522 | 4.11 | 0.448 | 4.79 |
+| WMMA + Shared Memory + Warp Tiling + Double Buffering | 0.491 | 4.37 | 0.458 | 4.69 |
+| WMMA + Shared Memory + Warp Tiling + Global Vectorized Loads | 0.219 | 9.81 | 0.210 | 10.23 |
+| WMMA + Shared Memory + Warp Tiling + Double Buffering + Global Vectorized Loads | 0.223 | 9.63 | 0.220 | 9.76 |
+| WMMA Prefetch | 0.236 | 9.10 | 0.207 | 10.37 |
+| WMMA Optimized V1 | 0.186 | 11.55 | 0.193 | 11.13 |
+| WMMA Optimized V2 | 0.174 | 12.34 | 0.192 | 11.18 |
+| rocBLAS | 0.115 | 18.67 | 0.141 | 15.23 |
 
 ### Performance for 2048x2048 Matrix Multiplication
 | Implementation | Windows Time (ms) | Windows TFLOPs/s | WSL2 Time (ms) | WSL2 TFLOPs/s |
 |----------------|-------------------|-------------------|----------------|---------------|
-| Shared Memory | 4.710 | 3.65 | 4.728 | 3.64 |
-| WMMA Naive | 3.544 | 4.86 | 3.227 | 5.33 |
-| WMMA + Shared Memory | 1.574 | 10.92 | 1.385 | 12.42 |
-| WMMA + Shared Memory + Warp Tiling | 0.917 | 18.76 | 0.769 | 22.37 |
-| WMMA + Shared Memory + Warp Tiling + Double Buffering | 0.892 | 19.29 | 0.731 | 23.52 |
-| WMMA + Shared Memory + Warp Tiling + Global Vectorized Loads | 0.331 | 52.00 | 0.339 | 50.76 |
-| WMMA + Shared Memory + Warp Tiling + Double Buffering + Global Vectorized Loads | 0.332 | 51.85 | 0.354 | 48.59 |
-| WMMA Prefetch | 0.344 | 49.96 | 0.362 | 47.52 |
-| WMMA Optimized V1 | 0.323 | 53.28 | 0.340 | 50.57 |
-| rocBLAS | 0.248 | 69.36 | 0.243 | 70.76 |
+| Shared Memory | 4.840 | 3.55 | 4.690 | 3.66 |
+| WMMA Naive | 3.920 | 4.38 | 3.420 | 5.02 |
+| WMMA + Shared Memory | 1.700 | 10.11 | 1.750 | 9.82 |
+| WMMA + Shared Memory + Warp Tiling | 0.950 | 18.08 | 0.899 | 19.11 |
+| WMMA + Shared Memory + Warp Tiling + Double Buffering | 0.972 | 17.67 | 0.850 | 20.21 |
+| WMMA + Shared Memory + Warp Tiling + Global Vectorized Loads | 0.545 | 31.52 | 0.454 | 37.84 |
+| WMMA + Shared Memory + Warp Tiling + Double Buffering + Global Vectorized Loads | 0.500 | 34.36 | 0.439 | 39.13 |
+| WMMA Prefetch | 0.532 | 32.29 | 0.447 | 38.43 |
+| WMMA Optimized V1 | 0.438 | 39.22 | 0.422 | 40.71 |
+| WMMA Optimized V2 | 0.400 | 42.95 | 0.425 | 40.42 |
+| rocBLAS | 0.330 | 52.06 | 0.349 | 49.23 |
 
 ### Performance for 4096x4096 Matrix Multiplication
 | Implementation | Windows Time (ms) | Windows TFLOPs/s | WSL2 Time (ms) | WSL2 TFLOPs/s |
 |----------------|-------------------|-------------------|----------------|---------------|
-| Shared Memory | 36.941 | 3.72 | 37.337 | 3.69 |
-| WMMA Naive | 23.408 | 5.88 | 21.522 | 6.39 |
-| WMMA + Shared Memory | 10.296 | 13.37 | 10.958 | 12.56 |
-| WMMA + Shared Memory + Warp Tiling | 6.203 | 22.18 | 6.197 | 22.21 |
-| WMMA + Shared Memory + Warp Tiling + Double Buffering | 6.066 | 22.69 | 6.076 | 22.65 |
-| WMMA + Shared Memory + Warp Tiling + Global Vectorized Loads | 2.238 | 61.50 | 2.309 | 59.59 |
-| WMMA + Shared Memory + Warp Tiling + Double Buffering + Global Vectorized Loads | 2.198 | 62.65 | 2.255 | 61.01 |
-| WMMA Prefetch | 2.234 | 61.62 | 2.301 | 59.80 |
-| WMMA Optimized V1 | 2.094 | 65.71 | 2.133 | 64.51 |
-| rocBLAS | 1.749 | 78.65 | 1.740 | 79.04 |
+| Shared Memory | 37.200 | 3.69 | 43.100 | 3.19 |
+| WMMA Naive | 23.300 | 5.90 | 21.500 | 6.39 |
+| WMMA + Shared Memory | 11.500 | 11.95 | 12.300 | 11.17 |
+| WMMA + Shared Memory + Warp Tiling | 6.050 | 22.72 | 6.480 | 21.21 |
+| WMMA + Shared Memory + Warp Tiling + Double Buffering | 6.610 | 20.79 | 6.360 | 21.61 |
+| WMMA + Shared Memory + Warp Tiling + Global Vectorized Loads | 2.550 | 53.90 | 2.440 | 56.33 |
+| WMMA + Shared Memory + Warp Tiling + Double Buffering + Global Vectorized Loads | 2.400 | 57.27 | 2.340 | 58.73 |
+| WMMA Prefetch | 2.460 | 55.87 | 2.340 | 58.73 |
+| WMMA Optimized V1 | 2.320 | 59.24 | 2.200 | 62.47 |
+| WMMA Optimized V2 | 2.160 | 63.63 | 2.140 | 64.22 |
+| rocBLAS | 1.930 | 71.21 | 1.860 | 73.89 |
 
 ### Performance for 8192x8192 Matrix Multiplication
 | Implementation | Windows Time (ms) | Windows TFLOPs/s | WSL2 Time (ms) | WSL2 TFLOPs/s |
 |----------------|-------------------|-------------------|----------------|---------------|
-| Shared Memory | 322.962 | 3.40 | 328.631 | 3.35 |
-| WMMA Naive | 195.017 | 5.64 | 199.790 | 5.51 |
-| WMMA + Shared Memory | 93.346 | 11.78 | 94.057 | 11.70 |
-| WMMA + Shared Memory + Warp Tiling | 42.220 | 26.06 | 42.201 | 26.07 |
-| WMMA + Shared Memory + Warp Tiling + Double Buffering | 40.874 | 26.91 | 40.517 | 27.15 |
-| WMMA + Shared Memory + Warp Tiling + Global Vectorized Loads | 17.475 | 63.06 | 17.471 | 63.07 |
-| WMMA + Shared Memory + Warp Tiling + Double Buffering + Global Vectorized Loads | 17.063 | 64.58 | 17.116 | 64.37 |
-| WMMA Prefetch | 17.116 | 64.38 | 17.308 | 63.67 |
-| WMMA Optimized V1 | 15.726 | 70.07 | 16.093 | 68.48 |
-| rocBLAS | 14.110 | 78.09 | 14.154 | 77.85 |
+| Shared Memory | 324.000 | 3.39 | 327.000 | 3.36 |
+| WMMA Naive | 196.000 | 5.61 | 200.000 | 5.50 |
+| WMMA + Shared Memory | 94.000 | 11.70 | 93.800 | 11.72 |
+| WMMA + Shared Memory + Warp Tiling | 42.900 | 25.63 | 42.600 | 25.81 |
+| WMMA + Shared Memory + Warp Tiling + Double Buffering | 41.600 | 26.43 | 41.000 | 26.82 |
+| WMMA + Shared Memory + Warp Tiling + Global Vectorized Loads | 17.800 | 61.77 | 17.500 | 62.83 |
+| WMMA + Shared Memory + Warp Tiling + Double Buffering + Global Vectorized Loads | 17.300 | 63.56 | 17.100 | 64.30 |
+| WMMA Prefetch | 17.400 | 63.19 | 17.300 | 63.56 |
+| WMMA Optimized V1 | 15.800 | 69.59 | 16.000 | 68.72 |
+| WMMA Optimized V2 | 15.600 | 70.48 | 15.800 | 69.59 |
+| rocBLAS | 14.300 | 76.89 | 14.200 | 77.43 |
 
 ## Verification Process
 
@@ -110,12 +114,6 @@ The verification system provides detailed feedback for each test:
 - Pass/fail status for each validation method
 - Combined overall validation status
 
-### 5. Size-Based Testing
-- Small matrices (256x256, 512x512) undergo full verification with all metrics
-- Larger matrices (1024+ dimensions) focus on performance benchmarking after correctness is established
-
-This multi-faceted approach ensures that kernel optimizations maintain numerical correctness while improving performance. As shown in the test results, all implementations achieve high accuracy with maximum relative errors under 1% and SSIM values above 0.98, indicating reliable computation regardless of the optimization techniques applied.
-
 ## Known Issues
 
 1. Current implementations are limited to the work tile configurations (e.g. if a tile of 256x256x16 is used, it will only work for dimensions that are multiples of 256).
@@ -125,13 +123,17 @@ This multi-faceted approach ensures that kernel optimizations maintain numerical
 Run the executable after building:
 ```bash
 # Assumes you're currently in /build directory
-./hgemm/hgemm
+# To run unit tests
+./hgemm/test
+
+# Additionally, tests are registered with ctest
+# Assumes you're currently in /build directory
+cd hgemm
+ctest
+
+# To run unit benchmarks
+./hgemm/bench
 ```
-
-### Customizing Tests
-
-- Edit `.verify_sizes` in main.cpp to add specific matrix sizes for correctness validation
-- Edit `.benchmark_sizes` to specify sizes for performance testing
 
 ## Future Improvements
 

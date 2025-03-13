@@ -100,7 +100,7 @@ __global__ void kernel_hgemm<kernel_type::wmma_prefetch>(
     const int tid         = threadIdx.x;
     const int num_threads = blockDim.x;
     const int half_block  = num_threads / 2;
-    const int cid         = threadIdx.x % half_block;
+    const int cid         = tid % half_block;
 
     const int block_row = blockIdx.x * config_p::block_m;
     const int block_col = blockIdx.y * config_p::block_n;

@@ -82,21 +82,21 @@ __global__ void kernel_hgemm<kernel_type::wmma_shared_warp_buf_vec>(
     half* C, const half* A, const half* B, int M, int N, int K)
 {
     // Allocate a unified shared memory buffer.
-    __shared__ half lds_mem[2][config_wbv::lds_size];
+    __shared__ half lds_mem[2 * config_wbv::lds_size];
 
-    // Partition the shared memory:
-    // A tiles occupy the first region.
-    half* a_tiles_0 = lds_mem[0];
-    half* a_tiles_1 = lds_mem[1];
-    // B tiles start after A's region.
-    half* b_tiles_0 = lds_mem[0] + (config_wbv::block_m * config_wbv::block_k);
-    half* b_tiles_1 = lds_mem[1] + (config_wbv::block_m * config_wbv::block_k);
+    // Partition the shared memory with manual offset calculations:
+    // A tiles occupy the first region in each buffer
+    half* a_tiles_0 = lds_mem;
+    half* a_tiles_1 = lds_mem + config_o1::lds_size;
+    // B tiles start after A's region in each buffer
+    half* b_tiles_0 = lds_mem + (config_o1::block_m * config_o1::block_k);
+    half* b_tiles_1 = lds_mem + config_o1::lds_size + (config_o1::block_m * config_o1::block_k);
 
     // Each block is launched with a one-dimensional thread block.
     const int tid         = threadIdx.x;
     const int num_threads = blockDim.x;
     const int half_block  = num_threads / 2;
-    const int cid         = threadIdx.x % half_block;
+    const int cid         = tid % half_block;
 
     const int block_row = blockIdx.x * config_wbv::block_m;
     const int block_col = blockIdx.y * config_wbv::block_n;

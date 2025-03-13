@@ -22,14 +22,14 @@
  * SOFTWARE.
  */
 
-#ifndef HIP_WMMA_OPT_1_HPP
-#define HIP_WMMA_OPT_1_HPP
+#ifndef HIP_WMMA_OPT_2_HPP
+#define HIP_WMMA_OPT_2_HPP
 
 #include <common/matrix.hpp>
 #include <kernels/common.hpp>
 
 template<>
-struct wmma_config<kernel_type::wmma_opt_1>
+struct wmma_config<kernel_type::wmma_opt_2>
 {
     static constexpr int warps_m     = 4;
     static constexpr int warps_n     = 4;
@@ -52,21 +52,24 @@ struct wmma_config<kernel_type::wmma_opt_1>
     // Vector loading configuration
     static constexpr int vector_width = 16;
     using vector_type                 = half16;
+
+    // Block stride for zigzag traversal
+    static constexpr int block_stride = 4;
 };
 
-using config_o1 = wmma_config<kernel_type::wmma_opt_1>;
+using config_o2 = wmma_config<kernel_type::wmma_opt_2>;
 
 /**
  * @brief Half-precision GEMM using WMMA with shared memory, shared/fragment double buffering,
- * warp tiling, cooperative loading and vectorized global loads using half16 vectors
+ * warp tiling, cooperative loading, zigzag traversal, and vectorized global loads using half16 vectors
  *
  * This kernel combines WMMA operations with shared memory, double buffering,
  * warp-level tiling and vectorized global loads. It uses double buffering at the shared and fragment
  * level to overlap computation with memory operations, maximizing hardware utilization and hiding
  * memory latency. Additionally, cooperative loading is used to load both A and B to shared memory
- * in parallel.
+ * in parallel. The kernel also uses a zigzag traversal pattern for improved cache locality.
  *
- * @tparam K_TYPE The type of kernel, should be 'kernel_type::wmma_opt_1'
+ * @tparam K_TYPE The type of kernel, should be 'kernel_type::wmma_opt_2'
  * @param[out] C  Output matrix of size M × N
  * @param[in]  A  Input matrix A of size M × K (stored in column-major format)
  * @param[in]  B  Input matrix B of size K × N (stored in row-major format)
@@ -78,21 +81,31 @@ using config_o1 = wmma_config<kernel_type::wmma_opt_1>;
  * @note Each warp processes a 4×4 grid of 16×16 WMMA tiles
  * @note Uses shared memory tiles of size (block_m × block_k) for A and (block_k × block_n) for B
  * @note Employs a 4×4 warp grid configuration within each thread block
+ * @note Uses a 3D grid with zigzag traversal for improved cache locality
  */
 template<>
-__global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
+__global__ void kernel_hgemm<kernel_type::wmma_opt_2>(
     half* C, const half* A, const half* B, int M, int N, int K)
 {
+    // Zigzag traversal pattern
+    const int block_tile_i = (blockIdx.z % 2)
+        ? ((gridDim.y - blockIdx.y - 1) * config_o2::block_m)
+        : (blockIdx.y * config_o2::block_m);
+    const int block_tile_j = (blockIdx.z * gridDim.x + blockIdx.x) * config_o2::block_n;
+
+    const int block_row = block_tile_i;
+    const int block_col = block_tile_j;
+
     // Allocate a unified shared memory buffer.
-    __shared__ half lds_mem[2 * config_o1::lds_size];
+    __shared__ half lds_mem[2 * config_o2::lds_size];
 
     // Partition the shared memory with manual offset calculations:
     // A tiles occupy the first region in each buffer
     half* a_tiles_0 = lds_mem;
-    half* a_tiles_1 = lds_mem + config_o1::lds_size;
+    half* a_tiles_1 = lds_mem + config_o2::lds_size;
     // B tiles start after A's region in each buffer
-    half* b_tiles_0 = lds_mem + (config_o1::block_m * config_o1::block_k);
-    half* b_tiles_1 = lds_mem + config_o1::lds_size + (config_o1::block_m * config_o1::block_k);
+    half* b_tiles_0 = lds_mem + (config_o2::block_m * config_o2::block_k);
+    half* b_tiles_1 = lds_mem + config_o2::lds_size + (config_o2::block_m * config_o2::block_k);
 
     // Each block is launched with a one-dimensional thread block.
     const int tid         = threadIdx.x;
@@ -100,34 +113,31 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
     const int half_block  = num_threads / 2;
     const int cid         = tid % half_block;
 
-    const int block_row = blockIdx.x * config_o1::block_m;
-    const int block_col = blockIdx.y * config_o1::block_n;
-
     const half* A_base = A + block_row; // A is in column-major order
     const half* B_base = B + block_col; // B is in row-major order
     half*       C_base = C + block_row * N + block_col;
 
     // Compute warp ID from the 1D thread index.
     const int warp_id  = tid / warp_size;
-    const int warp_row = warp_id / config_o1::warps_n;
-    const int warp_col = warp_id % config_o1::warps_n;
+    const int warp_row = warp_id / config_o2::warps_n;
+    const int warp_col = warp_id % config_o2::warps_n;
 
     constexpr int half_warp    = warp_size / 2;
     const int     half_warp_id = (tid % warp_size) / half_warp;
     const int     half_lane    = tid % half_warp;
 
     // Determine the base offsets for this warp's set of WMMA tiles.
-    const int warp_m_base = warp_row * config_o1::warp_tile_m * wmma_tile;
-    const int warp_n_base = warp_col * config_o1::warp_tile_n * wmma_tile;
+    const int warp_m_base = warp_row * config_o2::warp_tile_m * wmma_tile;
+    const int warp_n_base = warp_col * config_o2::warp_tile_n * wmma_tile;
 
     // Declare fragment storage.
-    half16 c_frags[config_o1::warp_tile_m][config_o1::warp_tile_n] = {};
+    half16 c_frags[config_o2::warp_tile_m][config_o2::warp_tile_n] = {};
 
     // Two sets of fragments for double-buffering at the fragment level
-    half16 a_frag_0[config_o1::warp_tile_m] = {};
-    half16 a_frag_1[config_o1::warp_tile_m] = {};
-    half16 b_frag_0[config_o1::warp_tile_n] = {};
-    half16 b_frag_1[config_o1::warp_tile_n] = {};
+    half16 a_frag_0[config_o2::warp_tile_m] = {};
+    half16 a_frag_1[config_o2::warp_tile_m] = {};
+    half16 b_frag_0[config_o2::warp_tile_n] = {};
+    half16 b_frag_1[config_o2::warp_tile_n] = {};
 
     // Base pointers for the current A and B tiles.
     const half* A_tile_ptr = A_base;
@@ -136,29 +146,29 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
     if(tid < half_block)
     {
         // Load A tile (of size block_m × block_k) into shared memory.
-        for(int i = cid * config_o1::vector_width; i < (config_o1::block_m * config_o1::block_k);
-            i += half_block * config_o1::vector_width)
+        for(int i = cid * config_o2::vector_width; i < (config_o2::block_m * config_o2::block_k);
+            i += half_block * config_o2::vector_width)
         {
-            const int col = i / config_o1::block_m;
-            const int row = i % config_o1::block_m;
+            const int col = i / config_o2::block_m;
+            const int row = i % config_o2::block_m;
 
-            if((block_row + row + config_o1::vector_width - 1) < M && col < K)
+            if((block_row + row + config_o2::vector_width - 1) < M && col < K)
             {
                 // Load full vector
-                *reinterpret_cast<config_o1::vector_type*>(a_tiles_0
-                                                            + col * config_o1::lds_stride_A + row)
-                    = *reinterpret_cast<const config_o1::vector_type*>(A_tile_ptr + col * M + row);
+                *reinterpret_cast<config_o2::vector_type*>(a_tiles_0
+                                                            + col * config_o2::lds_stride_A + row)
+                    = *reinterpret_cast<const config_o2::vector_type*>(A_tile_ptr + col * M + row);
             }
             else
             {
                 // Handle the boundary case element by element
-                for(int v = 0; v < config_o1::vector_width; v++)
+                for(int v = 0; v < config_o2::vector_width; v++)
                 {
                     if(block_row + row + v < M && col < K)
-                        a_tiles_0[col * config_o1::lds_stride_A + row + v]
+                        a_tiles_0[col * config_o2::lds_stride_A + row + v]
                             = A_tile_ptr[col * M + row + v];
                     else
-                        a_tiles_0[col * config_o1::lds_stride_A + row + v]
+                        a_tiles_0[col * config_o2::lds_stride_A + row + v]
                             = static_cast<half>(0.0f);
                 }
             }
@@ -167,29 +177,29 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
     else
     {
         // Load B tile (row-major) using vectorized loads
-        for(int i = cid * config_o1::vector_width; i < (config_o1::block_k * config_o1::block_n);
-            i += half_block * config_o1::vector_width)
+        for(int i = cid * config_o2::vector_width; i < (config_o2::block_k * config_o2::block_n);
+            i += half_block * config_o2::vector_width)
         {
-            const int row = i / config_o1::block_n;
-            const int col = i % config_o1::block_n;
+            const int row = i / config_o2::block_n;
+            const int col = i % config_o2::block_n;
 
-            if(row < K && (block_col + col + config_o1::vector_width - 1) < N)
+            if(row < K && (block_col + col + config_o2::vector_width - 1) < N)
             {
                 // Load full vector
-                *reinterpret_cast<config_o1::vector_type*>(b_tiles_0
-                                                            + row * config_o1::lds_stride_B + col)
-                    = *reinterpret_cast<const config_o1::vector_type*>(B_tile_ptr + row * N + col);
+                *reinterpret_cast<config_o2::vector_type*>(b_tiles_0
+                                                            + row * config_o2::lds_stride_B + col)
+                    = *reinterpret_cast<const config_o2::vector_type*>(B_tile_ptr + row * N + col);
             }
             else
             {
                 // Handle the boundary case element by element
-                for(int v = 0; v < config_o1::vector_width; v++)
+                for(int v = 0; v < config_o2::vector_width; v++)
                 {
                     if(row < K && block_col + col + v < N)
-                        b_tiles_0[row * config_o1::lds_stride_B + col + v]
+                        b_tiles_0[row * config_o2::lds_stride_B + col + v]
                             = B_tile_ptr[row * N + col + v];
                     else
-                        b_tiles_0[row * config_o1::lds_stride_B + col + v]
+                        b_tiles_0[row * config_o2::lds_stride_B + col + v]
                             = static_cast<half>(0.0f);
                 }
             }
@@ -202,36 +212,36 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
     half* next_b    = b_tiles_1;
 
     // Main loop over k-dimension
-    for(int k_tile = 0; k_tile < K; k_tile += config_o1::block_k)
+    for(int k_tile = 0; k_tile < K; k_tile += config_o2::block_k)
     {
         __syncthreads();
-        if(tid >= half_block && k_tile + config_o1::block_k < K)
+        if(tid >= half_block && k_tile + config_o2::block_k < K)
         {
-            const half* next_A = A_tile_ptr + M * config_o1::block_k;
+            const half* next_A = A_tile_ptr + M * config_o2::block_k;
             // Load A tile (of size block_m × block_k) into shared memory.
-            for(int i = cid * config_o1::vector_width;
-                i < (config_o1::block_m * config_o1::block_k);
-                i += half_block * config_o1::vector_width)
+            for(int i = cid * config_o2::vector_width;
+                i < (config_o2::block_m * config_o2::block_k);
+                i += half_block * config_o2::vector_width)
             {
-                const int col = i / config_o1::block_m;
-                const int row = i % config_o1::block_m;
+                const int col = i / config_o2::block_m;
+                const int row = i % config_o2::block_m;
 
-                if((block_row + row + config_o1::vector_width - 1) < M
-                   && (k_tile + config_o1::block_k + col) < K)
+                if((block_row + row + config_o2::vector_width - 1) < M
+                   && (k_tile + config_o2::block_k + col) < K)
                 {
-                    *reinterpret_cast<config_o1::vector_type*>(
-                        next_a + col * config_o1::lds_stride_A + row)
-                        = *reinterpret_cast<const config_o1::vector_type*>(next_A + col * M + row);
+                    *reinterpret_cast<config_o2::vector_type*>(
+                        next_a + col * config_o2::lds_stride_A + row)
+                        = *reinterpret_cast<const config_o2::vector_type*>(next_A + col * M + row);
                 }
                 else
                 {
-                    for(int v = 0; v < config_o1::vector_width; v++)
+                    for(int v = 0; v < config_o2::vector_width; v++)
                     {
-                        if(block_row + row + v < M && k_tile + config_o1::block_k + col < K)
-                            next_a[col * config_o1::lds_stride_A + row + v]
+                        if(block_row + row + v < M && k_tile + config_o2::block_k + col < K)
+                            next_a[col * config_o2::lds_stride_A + row + v]
                                 = next_A[col * M + row + v];
                         else
-                            next_a[col * config_o1::lds_stride_A + row + v]
+                            next_a[col * config_o2::lds_stride_A + row + v]
                                 = static_cast<half>(0.0f);
                     }
                 }
@@ -247,80 +257,84 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
 
         // Initial load of the first fragment set
         int k_offset = 0;
-        for(int wm = 0; wm < config_o1::warp_tile_m; ++wm)
+        for(int wm = 0; wm < config_o2::warp_tile_m; ++wm)
         {
             // Pointer to the start of the corresponding row in the A tile.
-            const half* src = current_a + k_offset * config_o1::lds_stride_A
+            const half* src = current_a + k_offset * config_o2::lds_stride_A
                               + (warp_m_base + wm * wmma_tile + half_lane);
             half* dest = reinterpret_cast<half*>(&compute_a_frag[wm]);
 #pragma unroll
             for(int i = 0; i < wmma_tile; ++i)
             {
                 *dest++ = *src;
-                src += config_o1::lds_stride_A;
+                src += config_o2::lds_stride_A;
             }
         }
 
-        for(int wn = 0; wn < config_o1::warp_tile_n; ++wn)
+        for(int wn = 0; wn < config_o2::warp_tile_n; ++wn)
         {
-            const half* src = current_b + k_offset * config_o1::lds_stride_B
+            const half* src = current_b + k_offset * config_o2::lds_stride_B
                               + (warp_n_base + wn * wmma_tile + half_lane);
             half* dest = reinterpret_cast<half*>(&compute_b_frag[wn]);
 #pragma unroll
             for(int i = 0; i < wmma_tile; ++i)
             {
                 *dest++ = *src;
-                src += config_o1::lds_stride_B;
+                src += config_o2::lds_stride_B;
             }
         }
 
         // Process with double-buffered fragments - only load next fragment if needed
-        for(k_offset = 0; k_offset < config_o1::block_k; k_offset += wmma_tile)
+        for(k_offset = 0; k_offset < config_o2::block_k; k_offset += wmma_tile)
         {
             // If this isn't the last iteration, preload the next fragment
-            if(k_offset + wmma_tile < config_o1::block_k)
+            if(k_offset + wmma_tile < config_o2::block_k)
             {
                 // Preload next fragment set
                 const int next_k_offset = k_offset + wmma_tile;
 
                 // Preload next A fragments
-                for(int wm = 0; wm < config_o1::warp_tile_m; ++wm)
+                for(int wm = 0; wm < config_o2::warp_tile_m; ++wm)
                 {
-                    const half* src = current_a + next_k_offset * config_o1::lds_stride_A
+                    const half* src = current_a + next_k_offset * config_o2::lds_stride_A
                                       + (warp_m_base + wm * wmma_tile + half_lane);
                     half* dest = reinterpret_cast<half*>(&load_a_frag[wm]);
 #pragma unroll
                     for(int i = 0; i < wmma_tile; ++i)
                     {
                         *dest++ = *src;
-                        src += config_o1::lds_stride_A;
+                        src += config_o2::lds_stride_A;
                     }
                 }
 
                 // Preload next B fragments
-                for(int wn = 0; wn < config_o1::warp_tile_n; ++wn)
+                for(int wn = 0; wn < config_o2::warp_tile_n; ++wn)
                 {
-                    const half* src = current_b + next_k_offset * config_o1::lds_stride_B
+                    const half* src = current_b + next_k_offset * config_o2::lds_stride_B
                                       + (warp_n_base + wn * wmma_tile + half_lane);
                     half* dest = reinterpret_cast<half*>(&load_b_frag[wn]);
 #pragma unroll
                     for(int i = 0; i < wmma_tile; ++i)
                     {
                         *dest++ = *src;
-                        src += config_o1::lds_stride_B;
+                        src += config_o2::lds_stride_B;
                     }
                 }
             }
 
-            // Compute using the current fragments
-            for(int wm = 0; wm < config_o1::warp_tile_m; ++wm)
+            // Compute using the current fragments with zigzag pattern for improved memory access
+            for(int wm = 0; wm < config_o2::warp_tile_m; ++wm)
             {
-                for(int wn = 0; wn < config_o1::warp_tile_n; ++wn)
+                for(int wn = 0; wn < config_o2::warp_tile_n; ++wn)
                 {
-                    c_frags[wm][wn] = __builtin_amdgcn_wmma_f16_16x16x16_f16_w32(compute_a_frag[wm],
-                                                                                 compute_b_frag[wn],
-                                                                                 c_frags[wm][wn],
-                                                                                 false);
+                    // Apply zigzag pattern: process even rows left-to-right, odd rows right-to-left
+                    int wn_s = (wm % config_o2::warps_n) ? (config_o2::warp_tile_n - wn - 1) : wn;
+
+                    c_frags[wm][wn_s] = __builtin_amdgcn_wmma_f16_16x16x16_f16_w32(
+                        compute_a_frag[wm],
+                        compute_b_frag[wn_s],
+                        c_frags[wm][wn_s],
+                        false);
                 }
             }
 
@@ -333,33 +347,33 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
             load_b_frag    = temp_b;
         }
 
-        if(tid < half_block && k_tile + config_o1::block_k < K)
+        if(tid < half_block && k_tile + config_o2::block_k < K)
         {
-            const half* next_B = B_tile_ptr + N * config_o1::block_k;
+            const half* next_B = B_tile_ptr + N * config_o2::block_k;
             // Load B tile (row-major) using vectorized loads
-            for(int i = cid * config_o1::vector_width;
-                i < (config_o1::block_k * config_o1::block_n);
-                i += half_block * config_o1::vector_width)
+            for(int i = cid * config_o2::vector_width;
+                i < (config_o2::block_k * config_o2::block_n);
+                i += half_block * config_o2::vector_width)
             {
-                const int row = i / config_o1::block_n;
-                const int col = i % config_o1::block_n;
+                const int row = i / config_o2::block_n;
+                const int col = i % config_o2::block_n;
 
-                if((k_tile + config_o1::block_k + row) < K
-                   && (block_col + col + config_o1::vector_width - 1) < N)
+                if((k_tile + config_o2::block_k + row) < K
+                   && (block_col + col + config_o2::vector_width - 1) < N)
                 {
-                    *reinterpret_cast<config_o1::vector_type*>(
-                        next_b + row * config_o1::lds_stride_B + col)
-                        = *reinterpret_cast<const config_o1::vector_type*>(next_B + row * N + col);
+                    *reinterpret_cast<config_o2::vector_type*>(
+                        next_b + row * config_o2::lds_stride_B + col)
+                        = *reinterpret_cast<const config_o2::vector_type*>(next_B + row * N + col);
                 }
                 else
                 {
-                    for(int v = 0; v < config_o1::vector_width; v++)
+                    for(int v = 0; v < config_o2::vector_width; v++)
                     {
-                        if(k_tile + config_o1::block_k + row < K && block_col + col + v < N)
-                            next_b[row * config_o1::lds_stride_B + col + v]
+                        if(k_tile + config_o2::block_k + row < K && block_col + col + v < N)
+                            next_b[row * config_o2::lds_stride_B + col + v]
                                 = next_B[row * N + col + v];
                         else
-                            next_b[row * config_o1::lds_stride_B + col + v]
+                            next_b[row * config_o2::lds_stride_B + col + v]
                                 = static_cast<half>(0.0f);
                     }
                 }
@@ -367,8 +381,8 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
         }
 
         // Advance the global pointers for A and B tiles.
-        A_tile_ptr += M * config_o1::block_k;
-        B_tile_ptr += N * config_o1::block_k;
+        A_tile_ptr += M * config_o2::block_k;
+        B_tile_ptr += N * config_o2::block_k;
         half* temp_a = current_a;
         half* temp_b = current_b;
         current_a    = next_a;
@@ -379,10 +393,10 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
 
     // Write the computed fragments to global memory.
     half* C_warp = C_base + warp_m_base * N + warp_n_base;
-    for(int wm = 0; wm < config_o1::warp_tile_m; wm++)
+    for(int wm = 0; wm < config_o2::warp_tile_m; wm++)
     {
         half* C_row = C_warp + wm * wmma_tile * N;
-        for(int wn = 0; wn < config_o1::warp_tile_n; wn++)
+        for(int wn = 0; wn < config_o2::warp_tile_n; wn++)
         {
             const int n_offset = wn * wmma_tile + half_lane;
 #pragma unroll
@@ -398,9 +412,9 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
 }
 
 /**
- * Function Definition for calling WMMA Optimized V1 GEMM kernel
+ * Function Definition for calling WMMA Optimized V2 GEMM kernel
  *
- * @tparam K_TYPE The type of kernel, should be 'kernel_type::wmma_opt_1'
+ * @tparam K_TYPE The type of kernel, should be 'kernel_type::wmma_opt_2'
  * @param C       Output matrix
  * @param A       Input matrix A (stored in column-major format)
  * @param B       Input matrix B (stored in row-major format)
@@ -410,14 +424,18 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_1>(
  * @param stream  HIP stream to execute kernel
  */
 template<>
-__host__ void hgemm_gpu<kernel_type::wmma_opt_1>(
+__host__ void hgemm_gpu<kernel_type::wmma_opt_2>(
     half* C, half* A, half* B, size_t M, size_t N, size_t K, hipStream_t& stream)
 {
-    dim3 block_dim(warp_size * config_o1::total_warps);
-    dim3 grid_dim(ceil_div(M, config_o1::block_m), ceil_div(N, config_o1::block_n));
+    dim3 block_dim(warp_size * config_o2::total_warps);
 
-    kernel_hgemm<kernel_type::wmma_opt_1>
+    // Use 3D grid with block_stride to implement zigzag traversal
+    dim3 grid_dim(config_o2::block_stride,
+                 ceil_div(M, config_o2::block_m),
+                 ceil_div(N, config_o2::block_n * config_o2::block_stride));
+
+    kernel_hgemm<kernel_type::wmma_opt_2>
         <<<grid_dim, block_dim, 0, stream>>>(C, A, B, M, N, K);
 }
 
-#endif // HIP_WMMA_OPT_1_HPP
+#endif // HIP_WMMA_OPT_2_HPP

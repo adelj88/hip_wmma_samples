@@ -27,6 +27,8 @@ list(APPEND CMAKE_PREFIX_PATH ${ROCM_ROOT}/llvm ${ROCM_ROOT} ${ROCM_ROOT}/hip)
 find_package(hip REQUIRED CONFIG PATHS ${ROCM_ROOT} /opt/rocm)
 find_package(rocBLAS REQUIRED)
 
+include(cmake/Dependencies.cmake)
+
 # Add subdirectories
 add_subdirectory(hgemm)
 

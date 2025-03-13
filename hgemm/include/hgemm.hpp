@@ -30,6 +30,7 @@
 #include <kernels/shared.hpp>
 #include <kernels/wmma.hpp>
 #include <kernels/wmma_opt_1.hpp>
+#include <kernels/wmma_opt_2.hpp>
 #include <kernels/wmma_prefetch.hpp>
 #include <kernels/wmma_shared.hpp>
 #include <kernels/wmma_shared_warp.hpp>
