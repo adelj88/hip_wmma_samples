@@ -53,21 +53,21 @@ struct wmma_config<kernel_type::wmma_opt_2>
     static constexpr int vector_width = 16;
     using vector_type                 = half16;
 
-    // Block stride for zigzag traversal
-    static constexpr int block_stride = 4;
+    // Swizzling parameters
+    static constexpr int group_size_m = 8; // Number of consecutive tiles to process in M dimension
 };
 
 using config_o2 = wmma_config<kernel_type::wmma_opt_2>;
 
 /**
  * @brief Half-precision GEMM using WMMA with shared memory, shared/fragment double buffering,
- * warp tiling, cooperative loading, zigzag traversal, and vectorized global loads using half16 vectors
+ * warp tiling, cooperative loading, grid-level swizzling, and vectorized global loads using half16 vectors
  *
  * This kernel combines WMMA operations with shared memory, double buffering,
  * warp-level tiling and vectorized global loads. It uses double buffering at the shared and fragment
  * level to overlap computation with memory operations, maximizing hardware utilization and hiding
  * memory latency. Additionally, cooperative loading is used to load both A and B to shared memory
- * in parallel. The kernel also uses a zigzag traversal pattern for improved cache locality.
+ * in parallel. The kernel also incorporates grid-level swizzling for improved L2 cache locality.
  *
  * @tparam K_TYPE The type of kernel, should be 'kernel_type::wmma_opt_2'
  * @param[out] C  Output matrix of size M × N
@@ -81,19 +81,25 @@ using config_o2 = wmma_config<kernel_type::wmma_opt_2>;
  * @note Each warp processes a 4×4 grid of 16×16 WMMA tiles
  * @note Uses shared memory tiles of size (block_m × block_k) for A and (block_k × block_n) for B
  * @note Employs a 4×4 warp grid configuration within each thread block
- * @note Uses a 3D grid with zigzag traversal for improved cache locality
+ * @note Uses grid-level swizzling for improved cache locality
  */
 template<>
 __global__ void kernel_hgemm<kernel_type::wmma_opt_2>(
     half* C, const half* A, const half* B, int M, int N, int K)
 {
-    // Zigzag traversal pattern
-    const int block_tile_i = (blockIdx.z % 2) ? ((gridDim.y - blockIdx.y - 1) * config_o2::block_m)
-                                              : (blockIdx.y * config_o2::block_m);
-    const int block_tile_j = (blockIdx.z * gridDim.x + blockIdx.x) * config_o2::block_n;
+    // Calculate grid dimensions
+    const int grid_m  = (M + config_o2::block_m - 1) / config_o2::block_m;
+    const int grid_n  = (N + config_o2::block_n - 1) / config_o2::block_n;
+    const int tile_id = blockIdx.x;
 
-    const int block_row = block_tile_i;
-    const int block_col = block_tile_j;
+    // Get block coordinates using swizzled mapping
+    int block_row, block_col;
+    swizzle_tile_mapping<config_o2::group_size_m, config_o2::block_m, config_o2::block_n>(
+        tile_id,
+        grid_m,
+        grid_n,
+        &block_row,
+        &block_col);
 
     // Allocate a unified shared memory buffer.
     __shared__ half lds_mem[2 * config_o2::lds_size];
@@ -422,27 +428,28 @@ __global__ void kernel_hgemm<kernel_type::wmma_opt_2>(
 }
 
 /**
- * Function Definition for calling WMMA Optimized V2 GEMM kernel
- *
- * @tparam K_TYPE The type of kernel, should be 'kernel_type::wmma_opt_2'
- * @param C       Output matrix
- * @param A       Input matrix A (stored in column-major format)
- * @param B       Input matrix B (stored in row-major format)
- * @param M       Number of rows in matrices A and C
- * @param N       Number of columns in matrices B and C
- * @param K       Number of columns in matrix A/rows in matrix B
- * @param stream  HIP stream to execute kernel
- */
+   * Function Definition for calling WMMA Optimized V2 GEMM kernel
+   *
+   * @tparam K_TYPE The type of kernel, should be 'kernel_type::wmma_opt_2'
+   * @param C       Output matrix
+   * @param A       Input matrix A (stored in column-major format)
+   * @param B       Input matrix B (stored in row-major format)
+   * @param M       Number of rows in matrices A and C
+   * @param N       Number of columns in matrices B and C
+   * @param K       Number of columns in matrix A/rows in matrix B
+   * @param stream  HIP stream to execute kernel
+   */
 template<>
 __host__ void hgemm_gpu<kernel_type::wmma_opt_2>(
     half* C, half* A, half* B, size_t M, size_t N, size_t K, hipStream_t& stream)
 {
-    dim3 block_dim(warp_size * config_o2::total_warps);
+    // Calculate grid dimensions
+    int grid_m       = (M + config_o2::block_m - 1) / config_o2::block_m;
+    int grid_n       = (N + config_o2::block_n - 1) / config_o2::block_n;
+    int total_blocks = grid_m * grid_n;
 
-    // Use 3D grid with block_stride to implement zigzag traversal
-    dim3 grid_dim(config_o2::block_stride,
-                  ceil_div(M, config_o2::block_m),
-                  ceil_div(N, config_o2::block_n * config_o2::block_stride));
+    dim3 grid_dim(total_blocks);
+    dim3 block_dim(warp_size * config_o2::total_warps);
 
     kernel_hgemm<kernel_type::wmma_opt_2><<<grid_dim, block_dim, 0, stream>>>(C, A, B, M, N, K);
 }
