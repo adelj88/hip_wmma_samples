@@ -41,6 +41,7 @@ enum class kernel_type
     wmma_prefetch,
     wmma_opt_1,
     wmma_opt_2,
+    wmma_opt_3,
     rocblas
 };
 

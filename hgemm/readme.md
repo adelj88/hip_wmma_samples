@@ -37,23 +37,24 @@ The table below shows key performance points in my optimization progression:
 | WMMA Naive     | 4.95 | 6.14 | 5.61 |
 | WMMA + Shared Memory | 10.48 | 13.22 | 11.68 |
 | ... | ... | ... | ... |
-| WMMA Optimized V2 | 48.87 | 63.40 | 76.63 |
-| rocBLAS | 53.73 | 71.37 | 76.79 |
+| WMMA Optimized V2 | 49.35 | 63.10 | 76.63 |
+| WMMA Optimized V3 | 49.47 | 63.21 | 76.41 |
+| rocBLAS | 55.15 | 70.93 | 76.45 |
 
 [View detailed square matrix benchmarks](docs/general.md)
 
 ### LLM-Focused Performance
 
-The most optimized WMMA implementation `wmma_opt_2` is compared against `rocBLAS` on matrix dimensions common in transformer/LLM architectures:
+The most optimized WMMA implementation `wmma_opt_3` is compared against `rocBLAS` on matrix dimensions common in transformer/LLM architectures:
 
-| Operation Type | Matrix Dimensions | `wmma_opt_2` (TFLOPs/s) | `rocBLAS` (TFLOPs/s) | `wmma_opt_2`/`rocBLAS` |
+| Operation Type | Matrix Dimensions | `wmma_opt_3` (TFLOPs/s) | `rocBLAS` (TFLOPs/s) | `wmma_opt_3`/`rocBLAS` |
 |----------------|-------------------|-----------------|-------------------|--------------|
-| FFN Second Layer | m=4096, n=4096, k=16384 | 66.68 | 51.74 | 128.9% |
-| Very Long Context | m=65536, n=2048, k=2048 | 68.04 | 61.88 | 110.0% |
-| Attention Score | m=4096, n=2048, k=64 | 8.47 | 9.30 | 91.0% |
-| Attention Score (Large Batch) | m=8192, n=4096, k=128 | 29.22 | 36.99 | 79.0% |
+| FFN Second Layer | m=4096, n=4096, k=16384 | 66.62 | 53.89 | 123.6% |
+| Very Long Context | m=65536, n=2048, k=2048 | 80.54 | 62.01 | 129.9% |
+| Attention Score | m=4096, n=2048, k=64 | 10.92 | 11.91 | 91.7% |
+| Attention Score (Large Batch) | m=8192, n=4096, k=128 | 32.68 | 41.82 | 78.2% |
 
-On average, `wmma_opt_2` achieves decent performance relative to `rocBLAS` across all tested LLM workloads without tuning.
+On average, `wmma_opt_3` achieves decent performance relative to `rocBLAS` across all tested LLM workloads without tuning.
 
 [View detailed LLM benchmarks](docs/llm_focus.md)
 

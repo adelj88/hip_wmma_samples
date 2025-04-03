@@ -1,23 +1,23 @@
 # LLM-Focused Benchmarks
 
-The best HGEMM implementation (`wmma_opt_2`) has been benchmarked against `rocBLAS` using matrix dimensions commonly found in transformer/LLM architectures.
+The latest HGEMM implementation (`wmma_opt_3`) has been benchmarked against `rocBLAS` using matrix dimensions commonly found in transformer/LLM architectures.
 
 ## Performance on Transformer/LLM Matrix Shapes
 
 Below are benchmarks comparing my best implementation against `rocBLAS` on non-square matrix shapes typical in transformer models:
 
-| Matrix Dimensions | Operation Type | `wmma_opt_2` (TFLOPs/s) | `rocBLAS` (TFLOPs/s) | `wmma_opt_2`/`rocBLAS` Ratio |
+| Matrix Dimensions | Operation Type | `wmma_opt_3` (TFLOPs/s) | `rocBLAS` (TFLOPs/s) | `wmma_opt_3`/`rocBLAS` Ratio |
 |------------------|----------------|-----------------|-------------------|-------------------|
-| m=4096, n=4096, k=1024 | QKV Projection | 51.73 | 62.09 | 83.3% |
-| m=8192, n=8192, k=1024 | QKV Projection (Large Batch) | 67.75 | 72.23 | 93.8% |
-| m=4096, n=2048, k=64 | Attention Score | 8.47 | 9.30 | 91.0% |
-| m=8192, n=4096, k=128 | Attention Score (Large Batch) | 29.22 | 36.99 | 79.0% |
-| m=4096, n=16384, k=4096 | FFN First Layer | 69.18 | 75.29 | 91.9% |
-| m=4096, n=4096, k=16384 | FFN Second Layer | 66.68 | 51.74 | 128.9% |
-| m=2048, n=5120, k=5120 | Model with 5120 Hidden Dim | 58.51 | 71.10 | 82.3% |
-| m=4096, n=5120, k=5120 | Model with 5120 Hidden Dim (Larger Batch) | 72.92 | 73.07 | 99.8% |
-| m=32768, n=4096, k=4096 | Long Context Processing | 71.55 | 76.30 | 93.8% |
-| m=65536, n=2048, k=2048 | Very Long Context Processing | 68.04 | 61.88 | 110.0% |
+| m=4096, n=4096, k=1024 | QKV Projection | 51.20 | 65.96 | 77.6% |
+| m=8192, n=8192, k=1024 | QKV Projection (Large Batch) | 67.48 | 72.58 | 93.0% |
+| m=4096, n=2048, k=64 | Attention Score | 10.92 | 11.91 | 91.7% |
+| m=8192, n=4096, k=128 | Attention Score (Large Batch) | 32.68 | 41.82 | 78.2% |
+| m=4096, n=16384, k=4096 | FFN First Layer | 76.30 | 75.29 | 101.3% |
+| m=4096, n=4096, k=16384 | FFN Second Layer | 66.62 | 53.89 | 123.6% |
+| m=2048, n=5120, k=5120 | Model with 5120 Hidden Dim | 76.47 | 72.05 | 106.1% |
+| m=4096, n=5120, k=5120 | Model with 5120 Hidden Dim (Larger Batch) | 77.32 | 66.26 | 116.7% |
+| m=32768, n=4096, k=4096 | Long Context Processing | 78.54 | 76.10 | 103.2% |
+| m=65536, n=2048, k=2048 | Very Long Context Processing | 80.54 | 62.01 | 129.9% |
 
 ## Raw Benchmark Data
 
@@ -27,24 +27,24 @@ Below is the raw benchmark data for reference:
 ----------------------------------------------------------------------------------------------------------------------------
 Benchmark                                                                  Time             CPU   Iterations UserCounters...
 ----------------------------------------------------------------------------------------------------------------------------
-{hgemm:kernel_type::wmma_opt_2,m:4096,n:4096,k:1024}/manual_time       0.668 ms        0.672 ms         1047 TFLOPS=51.729 bytes_per_second=70.1938Gi/s
-{hgemm:kernel_type::wmma_opt_2,m:8192,n:8192,k:1024}/manual_time        2.03 ms         2.03 ms          361 TFLOPS=67.7491 bytes_per_second=76.9183Gi/s
-{hgemm:kernel_type::wmma_opt_2,m:4096,n:2048,k:64}/manual_time         0.131 ms        0.132 ms         5091 TFLOPS=8.46654 bytes_per_second=125.026Gi/s
-{hgemm:kernel_type::wmma_opt_2,m:8192,n:4096,k:128}/manual_time        0.298 ms        0.295 ms         2225 TFLOPS=29.2163 bytes_per_second=219.922Gi/s
-{hgemm:kernel_type::wmma_opt_2,m:4096,n:16384,k:4096}/manual_time       7.95 ms         7.90 ms           89 TFLOPS=69.176 bytes_per_second=35.3838Gi/s
-{hgemm:kernel_type::wmma_opt_2,m:4096,n:4096,k:16384}/manual_time       8.25 ms         8.35 ms           88 TFLOPS=66.6813 bytes_per_second=34.0919Gi/s
-{hgemm:kernel_type::wmma_opt_2,m:2048,n:5120,k:5120}/manual_time        1.84 ms         1.80 ms          382 TFLOPS=58.5104 bytes_per_second=47.8413Gi/s
-{hgemm:kernel_type::wmma_opt_2,m:4096,n:5120,k:5120}/manual_time        2.95 ms         2.91 ms          247 TFLOPS=72.9187 bytes_per_second=43.0576Gi/s
-{hgemm:kernel_type::wmma_opt_2,m:32768,n:4096,k:4096}/manual_time       15.4 ms         15.3 ms           47 TFLOPS=71.552 bytes_per_second=34.5466Gi/s
-{hgemm:kernel_type::wmma_opt_2,m:65536,n:2048,k:2048}/manual_time       8.08 ms         7.90 ms           85 TFLOPS=68.0446 bytes_per_second=62.8419Gi/s
-{hgemm:kernel_type::rocblas,m:4096,n:4096,k:1024}/manual_time          0.558 ms        0.552 ms         1330 TFLOPS=62.0852 bytes_per_second=83.9381Gi/s
-{hgemm:kernel_type::rocblas,m:8192,n:8192,k:1024}/manual_time           1.91 ms         1.89 ms          388 TFLOPS=72.2308 bytes_per_second=81.9526Gi/s
-{hgemm:kernel_type::rocblas,m:4096,n:2048,k:64}/manual_time            0.118 ms        0.119 ms         5907 TFLOPS=9.30067 bytes_per_second=138.237Gi/s
-{hgemm:kernel_type::rocblas,m:8192,n:4096,k:128}/manual_time           0.236 ms        0.240 ms         3065 TFLOPS=36.9854 bytes_per_second=277.331Gi/s
-{hgemm:kernel_type::rocblas,m:4096,n:16384,k:4096}/manual_time          7.31 ms         7.43 ms          101 TFLOPS=75.2901 bytes_per_second=38.4594Gi/s
-{hgemm:kernel_type::rocblas,m:4096,n:4096,k:16384}/manual_time          10.6 ms         10.7 ms           64 TFLOPS=51.74 bytes_per_second=26.4277Gi/s
-{hgemm:kernel_type::rocblas,m:2048,n:5120,k:5120}/manual_time           1.51 ms         1.50 ms          490 TFLOPS=71.0975 bytes_per_second=58.1181Gi/s
-{hgemm:kernel_type::rocblas,m:4096,n:5120,k:5120}/manual_time           2.95 ms         3.01 ms          244 TFLOPS=73.0654 bytes_per_second=43.0997Gi/s
-{hgemm:kernel_type::rocblas,m:32768,n:4096,k:4096}/manual_time          14.4 ms         14.4 ms           51 TFLOPS=76.298 bytes_per_second=36.8211Gi/s
-{hgemm:kernel_type::rocblas,m:65536,n:2048,k:2048}/manual_time          8.88 ms         8.90 ms           79 TFLOPS=61.8791 bytes_per_second=57.1542Gi/s
+{hgemm:kernel_type::wmma_opt_3,m:4096,n:4096,k:1024}/manual_time       0.673 ms        0.649 ms          987 TFLOPS=51.2042 bytes_per_second=69.6253Gi/s
+{hgemm:kernel_type::wmma_opt_3,m:8192,n:8192,k:1024}/manual_time        2.04 ms         2.05 ms          365 TFLOPS=67.4756 bytes_per_second=76.6093Gi/s
+{hgemm:kernel_type::wmma_opt_3,m:4096,n:2048,k:64}/manual_time         0.100 ms        0.100 ms         7162 TFLOPS=10.9192 bytes_per_second=164.063Gi/s
+{hgemm:kernel_type::wmma_opt_3,m:8192,n:4096,k:128}/manual_time        0.264 ms        0.268 ms         2619 TFLOPS=32.6842 bytes_per_second=247.463Gi/s
+{hgemm:kernel_type::wmma_opt_3,m:4096,n:16384,k:4096}/manual_time       7.22 ms         7.28 ms          103 TFLOPS=76.2983 bytes_per_second=38.9532Gi/s
+{hgemm:kernel_type::wmma_opt_3,m:4096,n:4096,k:16384}/manual_time       8.26 ms         8.35 ms           88 TFLOPS=66.6227 bytes_per_second=34.0583Gi/s
+{hgemm:kernel_type::wmma_opt_3,m:2048,n:5120,k:5120}/manual_time        1.41 ms         1.40 ms          514 TFLOPS=76.4704 bytes_per_second=62.5355Gi/s
+{hgemm:kernel_type::wmma_opt_3,m:4096,n:5120,k:5120}/manual_time        2.78 ms         2.80 ms          262 TFLOPS=77.3214 bytes_per_second=45.6572Gi/s
+{hgemm:kernel_type::wmma_opt_3,m:32768,n:4096,k:4096}/manual_time       14.0 ms         13.9 ms           53 TFLOPS=78.5394 bytes_per_second=37.904Gi/s
+{hgemm:kernel_type::wmma_opt_3,m:65536,n:2048,k:2048}/manual_time       6.83 ms         6.83 ms          103 TFLOPS=80.5406 bytes_per_second=74.3633Gi/s
+{hgemm:kernel_type::rocblas,m:4096,n:4096,k:1024}/manual_time          0.523 ms        0.525 ms         1399 TFLOPS=65.9577 bytes_per_second=89.5896Gi/s
+{hgemm:kernel_type::rocblas,m:8192,n:8192,k:1024}/manual_time           1.90 ms         1.90 ms          338 TFLOPS=72.5826 bytes_per_second=82.3954Gi/s
+{hgemm:kernel_type::rocblas,m:4096,n:2048,k:64}/manual_time            0.092 ms        0.095 ms         7770 TFLOPS=11.9069 bytes_per_second=177.316Gi/s
+{hgemm:kernel_type::rocblas,m:8192,n:4096,k:128}/manual_time           0.207 ms        0.206 ms         3338 TFLOPS=41.8162 bytes_per_second=315.925Gi/s
+{hgemm:kernel_type::rocblas,m:4096,n:16384,k:4096}/manual_time          7.31 ms         7.27 ms          101 TFLOPS=75.2907 bytes_per_second=38.4683Gi/s
+{hgemm:kernel_type::rocblas,m:4096,n:4096,k:16384}/manual_time          10.2 ms         10.1 ms           68 TFLOPS=53.8943 bytes_per_second=27.5202Gi/s
+{hgemm:kernel_type::rocblas,m:2048,n:5120,k:5120}/manual_time           1.49 ms         1.50 ms          479 TFLOPS=72.0482 bytes_per_second=58.8557Gi/s
+{hgemm:kernel_type::rocblas,m:4096,n:5120,k:5120}/manual_time           3.27 ms         3.26 ms          225 TFLOPS=66.2591 bytes_per_second=38.8676Gi/s
+{hgemm:kernel_type::rocblas,m:32768,n:4096,k:4096}/manual_time          14.5 ms         14.4 ms           51 TFLOPS=76.0952 bytes_per_second=36.7173Gi/s
+{hgemm:kernel_type::rocblas,m:65536,n:2048,k:2048}/manual_time          8.87 ms         8.81 ms           78 TFLOPS=62.0142 bytes_per_second=57.2786Gi/s
 ```
