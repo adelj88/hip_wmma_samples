@@ -305,6 +305,42 @@ TYPED_TEST(HGEMMTest, Size320)
     this->VerifyHGEMM(M, N, K);
 }
 
+TYPED_TEST(HGEMMTest, Size320M)
+{
+    constexpr size_t M = 320;
+    constexpr size_t N = 512;
+    constexpr size_t K = 512;
+
+    std::cout << "Testing " << kernel_type_string(TestFixture::K_TYPE) << " with size " << M << "x"
+              << N << "x" << K << std::endl;
+
+    this->VerifyHGEMM(M, N, K);
+}
+
+TYPED_TEST(HGEMMTest, Size320N)
+{
+    constexpr size_t M = 512;
+    constexpr size_t N = 320;
+    constexpr size_t K = 320;
+
+    std::cout << "Testing " << kernel_type_string(TestFixture::K_TYPE) << " with size " << M << "x"
+              << N << "x" << K << std::endl;
+
+    this->VerifyHGEMM(M, N, K);
+}
+
+TYPED_TEST(HGEMMTest, Size320K)
+{
+    constexpr size_t M = 512;
+    constexpr size_t N = 512;
+    constexpr size_t K = 320;
+
+    std::cout << "Testing " << kernel_type_string(TestFixture::K_TYPE) << " with size " << M << "x"
+              << N << "x" << K << std::endl;
+
+    this->VerifyHGEMM(M, N, K);
+}
+
 TYPED_TEST(HGEMMTest, Size512x320)
 {
     constexpr size_t M = 512;
@@ -322,6 +358,30 @@ TYPED_TEST(HGEMMTest, Size512)
     constexpr size_t M = 512;
     constexpr size_t N = 512;
     constexpr size_t K = 512;
+
+    std::cout << "Testing " << kernel_type_string(TestFixture::K_TYPE) << " with size " << M << "x"
+              << N << "x" << K << std::endl;
+
+    this->VerifyHGEMM(M, N, K);
+}
+
+TYPED_TEST(HGEMMTest, Size1024M)
+{
+    constexpr size_t M = 1024;
+    constexpr size_t N = 256;
+    constexpr size_t K = 256;
+
+    std::cout << "Testing " << kernel_type_string(TestFixture::K_TYPE) << " with size " << M << "x"
+              << N << "x" << K << std::endl;
+
+    this->VerifyHGEMM(M, N, K);
+}
+
+TYPED_TEST(HGEMMTest, Size1024N)
+{
+    constexpr size_t M = 256;
+    constexpr size_t N = 1024;
+    constexpr size_t K = 256;
 
     std::cout << "Testing " << kernel_type_string(TestFixture::K_TYPE) << " with size " << M << "x"
               << N << "x" << K << std::endl;
